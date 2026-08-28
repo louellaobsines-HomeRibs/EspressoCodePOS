@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Espresso Code - POS Register</title>
+    <style>
+        :root {
+            --bg-color: #FAF6F0;
+            --card-bg: #FFFFFF;
+            --header-bg: #2C1810;
+            --accent-primary: #6F4E37;
+            --accent-hover: #5A3E2B;
+            --text-dark: #2C1810;
+            --text-muted: #7A685D;
+            --border-color: #E6DCCF;
+            --summary-bg: #F4ECE1;
+            --selected-bg: #D4A373;
+        }
+
+        body.theme-espresso { --bg-color: #FAF6F0; --header-bg: #2C1810; --accent-primary: #6F4E37; --selected-bg: #D4A373; }
+        body.theme-mocha { --bg-color: #F5EFE6; --header-bg: #3D2314; --accent-primary: #4A2E1B; --selected-bg: #B8956A; }
+        body.theme-dark-roast { --bg-color: #1F1714; --card-bg: #2C211D; --header-bg: #150F0D; --accent-primary: #D4A373; --text-dark: #FAEDCD; --border-color: #42322C; --summary-bg: #18110E; --selected-bg: #6F4E37; }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-dark); padding: 20px 15px; max-width: 1400px; margin: 0 auto; transition: all 0.3s ease; }
+
+        header {
+            background-color: var(--header-bg);
+            padding: 20px;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 15px rgba(44, 24, 16, 0.15);
+        }
+        header h1 { color: #FAF6F0; font-size: 2rem; letter-spacing: 2px; font-weight: 800; }
+        header p { color: #D4A373; font-family: monospace; font-size: 0.95rem; margin-top: 4px; }
+
+        .theme-bar { display: flex; align-items: center; gap: 10px; margin-top: 14px; background: rgba(255, 255, 255, 0.1); padding: 6px 14px; border-radius: 20px; }
+        .theme-label { font-size: 0.8rem; color: #E6DCCF; font-family: monospace; }
+        .theme-dot { width: 20px; height: 20px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
+        .theme-dot.active { border-color: #FAF6F0; }
+        .dot-espresso { background: #6F4E37; }
+        .dot-mocha { background: #3D2314; }
+        .dot-dark-roast { background: #D4A373; }
+
+        .nav-tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 25px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .nav-tab {
+            flex: 1;
+            padding: 14px 20px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: var(--card-bg);
+            color: var(--text-muted);
+            border: none;
+            border-bottom: 3px solid transparent;
+        }
+        .nav-tab:hover {
+            background: var(--summary-bg);
+            color: var(--accent-primary);
+        }
+        .nav-tab.active {
+            color: var(--accent-primary);
+            border-bottom-color: var(--accent-primary);
+            background: var(--summary-bg);
+        }
+        .nav-tab .tab-icon { margin-right: 8px; }
+
+        .page { display: none; }
+        .page.active { display: block; }
+
+        .pos-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 1000px) {
+            .pos-grid { grid-template-columns: 1fr; }
+        }
+
+        .card { background-color: var(--card-bg); border-radius: 12px; padding: 24px; box-shadow: 0 4px 16px rgba(44, 24, 16, 0.06); border: 1px solid var(--border-color); margin-bottom: 20px; }
+        h2 { font-size: 1.15rem; color: var(--accent-primary); margin-bottom: 18px; font-family: monospace; border-bottom: 2px solid var(--bg-color); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+
+        .quick-items-label { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+        .quick-buttons { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 18px; }
+        .btn-quick {
+            background-color: var(--summary-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-dark);
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .btn-quick span.price { color: var(--accent-primary); font-size: 0.78rem; margin-top: 4px; font-weight: bold; }
+        .btn-quick:hover { background-color: var(--accent-primary); color: #FFFFFF; border-color: var(--accent-primary); }
+        .btn-quick:hover span.price { color: #E6DCCF; }
+
+        .form-group { margin-bottom: 16px; }
+        label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; font-weight: 600; }
+        select, input, textarea { width: 100%; padding: 12px 14px; background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-dark); font-size: 0.95rem; outline: none; font-family: inherit; }
+        select:focus, input:focus, textarea:focus { border-color: var(--accent-primary); }
+        textarea { resize: vertical; min-height: 60px; max-height: 100px; }
+
+        .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        
+        .btn-primary { padding: 14px 24px; border: none; border-radius: 8px; font-weight: bold; background-color: var(--accent-primary); color: #FFFFFF; font-size: 1rem; cursor: pointer; transition: background-color 0.2s ease; }
+        .btn-primary:hover { background-color: var(--accent-hover); }
+        .btn-primary.full { width: 100%; margin-top: 12px; }
+        .btn-primary.small { padding: 10px 16px; font-size: 0.9rem; }
+        
+        .btn-secondary { background-color: var(--summary-bg); color: var(--accent-primary); border: 1px solid var(--border-color); padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer; }
+        .btn-secondary:hover { background-color: var(--accent-primary); color: #FFF; }
+        .btn-danger { background: transparent; color: #C0392B; border: 1px solid #C0392B; padding: 4px 10px; font-size: 0.75rem; border-radius: 6px; cursor: pointer; }
+        .btn-danger:hover { background: #C0392B; color: #FFF; }
+
+        .btn-add-item {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            background-color: var(--accent-primary);
+            color: #FFFFFF;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            white-space: nowrap;
+            height: 44px;
+        }
+        .btn-add-item:hover { background-color: var(--accent-hover); }
+
+        .summary-box { background-color: var(--summary-bg); padding: 16px; border-radius: 8px; margin-top: 16px; border: 1px dashed var(--border-color); }
+        .summary-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.92rem; color: var(--text-muted); }
+        .summary-row.total { font-size: 1.25rem; font-weight: bold; color: var(--accent-primary); border-top: 1px solid var(--border-color); padding-top: 10px; margin-top: 10px; }
+
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+        @media (max-width: 700px) { .stat-grid { grid-template-columns: 1fr 1fr; } }
+        .stat-card { background-color: var(--summary-bg); padding: 14px; border-radius: 8px; text-align: center; border: 1px solid var(--border-color); }
+        .stat-card .val { font-size: 1.3rem; font-weight: bold; color: var(--accent-primary); margin-top: 4px; }
+        .stat-card .lbl { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin-top: 10px; }
+        th, td { padding: 10px 8px; border-bottom: 1px solid var(--border-color); text-align: left; }
+        th { color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; font-weight: 600; }
+        .method-badge { padding: 3px 10px; border-radius: 4px; font-size: 0.72rem; font-weight: bold; background-color: var(--accent-primary); color: #fff; display: inline-block; }
+        
+        .manage-panel { display: none; margin-bottom: 20px; }
+        .manage-panel.active { display: block; }
+
+        .selected-display {
+            background: var(--summary-bg);
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin-bottom: 14px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .selected-display .label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; }
+        .selected-display .value { font-weight: bold; font-size: 1.05rem; color: var(--accent-primary); }
+        .selected-display .value.empty { color: var(--text-muted); font-weight: normal; font-size: 0.9rem; }
+
+        .cart-items {
+            max-height: 150px;
+            overflow-y: auto;
+            margin-bottom: 12px;
+        }
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 8px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.85rem;
+        }
+        .cart-item .remove-btn {
+            background: transparent;
+            border: none;
+            color: #C0392B;
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 0 4px;
+        }
+        .cart-item .remove-btn:hover { transform: scale(1.2); }
+        .cart-empty { color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 10px; }
+
+        .add-success {
+            background: #27AE60;
+            color: white;
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            margin: 8px 0;
+            display: none;
+            text-align: center;
+        }
+        .add-success.show { display: block; }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .input-group input, .input-group select {
+            flex: 1;
+            padding: 10px 14px;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-dark);
+            font-size: 0.95rem;
+            outline: none;
+            height: 44px;
+            min-width: 100px;
+        }
+        .input-group select { flex: 0.5; }
+        .input-group input:focus, .input-group select:focus {
+            border-color: var(--accent-primary);
+        }
+        .input-group .btn-add-item {
+            flex: 0 0 auto;
+        }
+
+        .txn-table-wrap {
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .txn-table-wrap table {
+            font-size: 0.85rem;
+            width: 100%;
+        }
+        .txn-table-wrap th {
+            position: sticky;
+            top: 0;
+            background: var(--card-bg);
+            z-index: 2;
+            padding: 10px 12px;
+            border-bottom: 2px solid var(--accent-primary);
+        }
+        .txn-table-wrap td {
+            padding: 10px 12px;
+            vertical-align: middle;
+        }
+        .txn-table-wrap .txn-items {
+            word-break: break-word;
+            line-height: 1.4;
+        }
+        .txn-table-wrap .txn-total {
+            font-weight: bold;
+            color: var(--accent-primary);
+        }
+        .txn-table-wrap .txn-empty {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 30px 15px;
+        }
+        .txn-table-wrap tr:hover td {
+            background-color: var(--summary-bg);
+        }
+        .txn-mode-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            display: inline-block;
+            background-color: var(--accent-primary);
+            color: #fff;
+        }
+        .txn-mode-badge.cash { background-color: #2C1810; }
+        .txn-mode-badge.online { background-color: #1A5276; }
+
+        .txn-remark-tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: help;
+        }
+        .txn-remark-tooltip .remark-icon {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+        .txn-remark-tooltip .remark-text {
+            display: none;
+        }
+        .txn-remark-tooltip:hover .remark-text {
+            display: block;
+            position: absolute;
+            background: var(--header-bg);
+            color: #FAF6F0;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            max-width: 280px;
+            white-space: normal;
+            word-wrap: break-word;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 8px;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            font-weight: normal;
+            line-height: 1.4;
+            text-align: left;
+        }
+        .txn-remark-tooltip:hover .remark-text::before {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: var(--header-bg);
+            z-index: 100;
+        }
+
+        .char-count {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-align: right;
+            margin-top: 4px;
+        }
+        .char-count.limit { color: #E67E22; }
+        .char-count.over { color: #C0392B; }
+
+        .export-actions {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .export-actions .btn-primary { margin-top: 0; }
+
+        .menu-manager-top {
+            margin-bottom: 18px;
+        }
+        .menu-manager-top .input-group {
+            margin-bottom: 0;
+        }
+        .menu-manager-top .input-group input,
+        .menu-manager-top .input-group select {
+            height: 40px;
+            padding: 8px 12px;
+            font-size: 0.9rem;
+        }
+        .menu-manager-top .btn-add-item {
+            height: 40px;
+            padding: 8px 16px;
+            font-size: 0.9rem;
+        }
+
+        .menu-items-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            max-height: 420px;
+            overflow-y: auto;
+            padding: 4px 2px;
+        }
+        .menu-items-grid::-webkit-scrollbar { width: 6px; }
+        .menu-items-grid::-webkit-scrollbar-track { background: var(--bg-color); border-radius: 4px; }
+        .menu-items-grid::-webkit-scrollbar-thumb { background: var(--accent-primary); border-radius: 4px; }
+
+        .menu-item-card {
+            background-color: var(--summary-bg);
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            padding: 12px 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            min-height: 90px;
+            justify-content: center;
+            position: relative;
+        }
+        .menu-item-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-color: var(--accent-primary);
+        }
+        .menu-item-card.selected {
+            border-color: var(--accent-primary);
+            background-color: var(--selected-bg);
+            color: #FFFFFF;
+            box-shadow: 0 4px 12px rgba(111, 78, 55, 0.25);
+        }
+        .menu-item-card.selected .item-price {
+            color: #FAF6F0;
+        }
+        .menu-item-card .item-emoji {
+            font-size: 1.8rem;
+            line-height: 1;
+        }
+        .menu-item-card .item-name {
+            font-size: 0.75rem;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+        .menu-item-card .item-price {
+            font-size: 0.7rem;
+            color: var(--accent-primary);
+            font-weight: bold;
+        }
+        .menu-item-card .top-badge {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            font-size: 0.65rem;
+            background: var(--accent-primary);
+            color: #fff;
+            padding: 1px 6px;
+            border-radius: 8px;
+        }
+        .menu-item-card .action-buttons {
+            position: absolute;
+            top: 2px;
+            left: 4px;
+            display: flex;
+            gap: 2px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .menu-item-card:hover .action-buttons {
+            opacity: 1;
+        }
+        .menu-item-card .action-btn {
+            background: rgba(44, 24, 16, 0.8);
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            font-size: 0.6rem;
+            padding: 2px 5px;
+            border-radius: 4px;
+            transition: transform 0.2s;
+        }
+        .menu-item-card .action-btn:hover {
+            transform: scale(1.2);
+        }
+        .menu-item-card .action-btn.delete {
+            background: rgba(192, 57, 43, 0.9);
+        }
+        .menu-item-card .action-btn.top {
+            background: rgba(44, 24, 16, 0.9);
+        }
+        .menu-item-card .action-btn.top.active {
+            background: rgba(212, 163, 115, 0.9);
+        }
+    </style>
+</head>
+<body class="theme-espresso">
+
+    <header>
+        <h1>ESPRESSO CODE</h1>
+        <p>POS & Realtime Sales Register</p>
+        <div class="theme-bar">
+            <span class="theme-label">Theme:</span>
+            <div class="theme-dot dot-espresso active" onclick="setTheme('theme-espresso', this)"></div>
+            <div class="theme-dot dot-mocha" onclick="setTheme('theme-mocha', this)"></div>
+            <div class="theme-dot dot-dark-roast" onclick="setTheme('theme-dark-roast', this)"></div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <div class="nav-tabs">
+        <button class="nav-tab active" onclick="switchPage('page1', this)">
+            <span class="tab-icon">🛒</span> Take Order
+        </button>
+        <button class="nav-tab" onclick="switchPage('page2', this)">
+            <span class="tab-icon">📊</span> Sales Report & Export
+        </button>
+    </div>
+
+    <!-- PAGE 1: Take Order -->
+    <div id="page1" class="page active">
+        <div class="card menu-manager-top">
+            <h2>
+                <span>📋 MENU MANAGEMENT</span>
+                <button class="btn-secondary" onclick="toggleMenuManager()" id="toggleMgrBtn">Manage Menu</button>
+            </h2>
+            
+            <div id="menuManagerPanel" class="manage-panel">
+                <div class="input-group">
+                    <input type="text" id="newProdName" placeholder="Product Name">
+                    <input type="number" id="newProdPrice" placeholder="Price (₱)">
+                    <select id="newProdIcon">
+                        <option value="☕">☕ Hot</option>
+                        <option value="🧊">🧊 Cold</option>
+                        <option value="🍽️">🍽️ Food</option>
+                        <option value="🥤">🥤 Iced</option>
+                        <option value="🍵">🍵 Tea</option>
+                        <option value="🥛">🥛 Milk</option>
+                        <option value="🍰">🍰 Pastry</option>
+                        <option value="🥐">🥐 Bread</option>
+                    </select>
+                    <button class="btn-add-item" onclick="addProduct()">➕ Add</button>
+                </div>
+                <div id="addSuccessMsg" class="add-success">✅ Item added successfully!</div>
+                
+                <div style="margin-top: 15px; max-height: 200px; overflow-y: auto; border-top: 1px solid var(--border-color); padding-top: 10px;">
+                    <table style="font-size:0.82rem;">
+                        <thead>
+                            <tr>
+                                <th style="width:30px;">Icon</th>
+                                <th>Name</th>
+                                <th style="width:70px;">Price</th>
+                                <th style="width:60px;">Top</th>
+                                <th style="width:60px;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="menuManagerTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="pos-grid">
+            <div class="card">
+                <h2>
+                    <span>☕ MENU ITEMS</span>
+                    <span style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">Click to select</span>
+                </h2>
+                <div class="quick-items-label">⚡ Top Sellers</div>
+                <div class="quick-buttons" id="quickButtonsContainer"></div>
+                
+                <div class="quick-items-label" style="margin-top: 6px;">All Items</div>
+                <div class="menu-items-grid" id="menuItemsGrid"></div>
+            </div>
+
+            <div>
+                <div class="card">
+                    <h2>&gt; NEW TRANSACTION</h2>
+
+                    <div class="selected-display" id="selectedDisplay">
+                        <span class="label">Selected Item</span>
+                        <span class="value empty" id="selectedItemName">None selected</span>
+                    </div>
+
+                    <div class="row-2">
+                        <div class="form-group">
+                            <label>Quantity</label>
+                            <input type="number" id="qtyInput" value="1" min="1" oninput="updateTotals()">
+                        </div>
+                        <div class="form-group">
+                            <label>Action</label>
+                            <button class="btn-primary" style="margin-top: 0; padding: 12px; width:100%;" onclick="addToCart()">➕ Add to Order</button>
+                        </div>
+                    </div>
+
+                    <div class="quick-items-label" style="margin-top: 6px;">🛒 Current Order</div>
+                    <div class="cart-items" id="cartItems">
+                        <div class="cart-empty">No items added yet</div>
+                    </div>
+
+                    <div class="summary-box">
+                        <div class="summary-row total"><span>Subtotal:</span><span>₱<span id="subtotalLabel">0.00</span></span></div>
+                        <div class="summary-row" style="font-size:0.85rem; color:var(--text-muted);"><span>Items:</span><span id="itemCountLabel">0</span></div>
+                    </div>
+
+                    <div class="row-2" style="margin-top: 8px;">
+                        <div class="form-group">
+                            <label>Payment Mode</label>
+                            <select id="paymentMode" onchange="toggleCashFields()">
+                                <option value="Cash">Cash</option>
+                                <option value="Online">Online</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="cashGroup">
+                            <label>Amount Tendered</label>
+                            <input type="number" id="tenderedInput" placeholder="e.g. 500" oninput="calculateChange()">
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 4px;">
+                        <label>Order Remarks <span style="font-weight:normal;color:var(--text-muted);">(optional, max 50 chars)</span></label>
+                        <textarea id="orderRemarks" maxlength="50" placeholder="Special instructions, modifications, etc." oninput="updateCharCount()"></textarea>
+                        <div class="char-count" id="charCount">0 / 50</div>
+                    </div>
+
+                    <div class="summary-box" style="margin-top: 8px;">
+                        <div class="summary-row total"><span>Total Amount:</span><span>₱<span id="totalAmountLabel">0.00</span></span></div>
+                        <div class="summary-row" id="changeRow"><span>Change Due:</span><span>₱<span id="changeLabel">0.00</span></span></div>
+                    </div>
+
+                    <button class="btn-primary full" onclick="recordTransaction()">💳 COMPLETE TRANSACTION</button>
+                    <button class="btn-secondary" style="width:100%; margin-top:8px;" onclick="clearCart()">🗑️ Clear Order</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PAGE 2: Sales Report & Export -->
+    <div id="page2" class="page">
+        <div class="card">
+            <h2>
+                <span>📊 DAILY SUMMARY REPORT</span>
+                <button class="btn-danger" onclick="clearData()">Clear Sales</button>
+            </h2>
+
+            <div class="stat-grid">
+                <div class="stat-card"><div class="lbl">Total Sales</div><div class="val" id="statSales">₱0.00</div></div>
+                <div class="stat-card"><div class="lbl">Transactions</div><div class="val" id="statTxnCount">0</div></div>
+                <div class="stat-card"><div class="lbl">Cash Sales</div><div class="val" id="statCash">₱0.00</div></div>
+                <div class="stat-card"><div class="lbl">Online Sales</div><div class="val" id="statOnline">₱0.00</div></div>
+            </div>
+
+            <div class="export-actions">
+                <button class="btn-primary small" onclick="exportExcel()">📥 Export to Excel</button>
+                <span style="font-size:0.8rem; color:var(--text-muted); align-self:center;">Export all transaction data with full details</span>
+            </div>
+
+            <h3 style="font-size: 0.85rem; color: var(--text-muted); font-family: monospace; margin-bottom: 12px;">RECENT TRANSACTIONS</h3>
+            <div class="txn-table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Items</th>
+                            <th>Total</th>
+                            <th>Payment Mode</th>
+                            <th>Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody id="txnTableBody">
+                        <tr>
+                            <td colspan="7" class="txn-empty">No transactions recorded yet.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const defaultMenu = [
+            { id: 1, name: 'Americano', price: 120, isTop: true, emoji: '☕' },
+            { id: 2, name: 'Spanish Latte', price: 140, isTop: true, emoji: '☕' },
+            { id: 3, name: 'Sweet Cappuccino', price: 140, isTop: false, emoji: '☕' },
+            { id: 4, name: 'Caramel Brûlée Latte', price: 150, isTop: false, emoji: '☕' },
+            { id: 5, name: 'Iced Americano', price: 130, isTop: false, emoji: '🧊' },
+            { id: 6, name: 'Iced Spanish Latte', price: 150, isTop: true, emoji: '🧊' },
+            { id: 7, name: 'Sea Salt Cream Latte', price: 160, isTop: true, emoji: '☕' }
+        ];
+
+        let menu = JSON.parse(localStorage.getItem('espresso_pos_menu')) || defaultMenu;
+        let transactions = JSON.parse(localStorage.getItem('espresso_pos_txns')) || [];
+        let selectedItem = null;
+        let cart = [];
+
+        function switchPage(pageId, btn) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+            if (btn) btn.classList.add('active');
+            if (pageId === 'page2') renderDashboard();
+        }
+
+        function toggleMenuManager() {
+            const panel = document.getElementById('menuManagerPanel');
+            const btn = document.getElementById('toggleMgrBtn');
+            panel.classList.toggle('active');
+            btn.innerText = panel.classList.contains('active') ? 'Hide Manager' : 'Manage Menu';
+        }
+
+        function saveMenu() {
+            localStorage.setItem('espresso_pos_menu', JSON.stringify(menu));
+            renderMenuUI();
+        }
+
+        function renderMenuUI() {
+            const managerBody = document.getElementById('menuManagerTableBody');
+            if (managerBody) {
+                managerBody.innerHTML = menu.map((item, index) => `
+                    <tr>
+                        <td style="text-align:center;font-size:1.2rem;">${item.emoji || '☕'}</td>
+                        <td>${item.name}</td>
+                        <td>₱${item.price}</td>
+                        <td style="text-align:center;">
+                            <input type="checkbox" ${item.isTop ? 'checked' : ''} 
+                                   onchange="toggleTopFromManager(${index}, this.checked)" 
+                                   style="cursor:pointer; width:16px; height:16px;">
+                        </td>
+                        <td>
+                            <button class="btn-danger" style="padding:2px 8px; font-size:0.7rem;" onclick="deleteItem(${index})">✕</button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+
+            const grid = document.getElementById('menuItemsGrid');
+            if (grid) {
+                grid.innerHTML = menu.map((item, index) => `
+                    <div class="menu-item-card ${selectedItem && selectedItem.id === item.id ? 'selected' : ''}" 
+                         onclick="selectItem(${item.id})"
+                         data-id="${item.id}">
+                        ${item.isTop ? '<span class="top-badge">⭐</span>' : ''}
+                        <div class="action-buttons">
+                            <button class="action-btn top ${item.isTop ? 'active' : ''}" 
+                                    onclick="event.stopPropagation(); toggleTop(${index})" 
+                                    title="Toggle Top Seller">${item.isTop ? '⭐' : '☆'}</button>
+                            <button class="action-btn delete" 
+                                    onclick="event.stopPropagation(); deleteItem(${index})" 
+                                    title="Delete Item">✕</button>
+                        </div>
+                        <span class="item-emoji">${item.emoji || '☕'}</span>
+                        <span class="item-name">${item.name}</span>
+                        <span class="item-price">₱${item.price}</span>
+                    </div>
+                `).join('');
+            }
+
+            renderQuickButtons();
+            updateSelectedDisplay();
+        }
+
+        function toggleTop(index) {
+            menu[index].isTop = !menu[index].isTop;
+            saveMenu();
+        }
+
+        function toggleTopFromManager(index, checked) {
+            menu[index].isTop = checked;
+            saveMenu();
+        }
+
+        function renderQuickButtons() {
+            const quickContainer = document.getElementById('quickButtonsContainer');
+            if (!quickContainer) return;
+            const topSellers = menu.filter(item => item.isTop);
+            quickContainer.innerHTML = topSellers.map(item => `
+                <button class="btn-quick" onclick="selectItem(${item.id})">
+                    ${item.emoji || '☕'} ${item.name} <span class="price">₱${item.price}</span>
+                </button>
+            `).join('');
+        }
+
+        function selectItem(id) {
+            const item = menu.find(i => i.id === id);
+            if (item) {
+                selectedItem = item;
+                renderMenuUI();
+                updateSelectedDisplay();
+                document.getElementById('qtyInput').focus();
+            }
+        }
+
+        function updateSelectedDisplay() {
+            const display = document.getElementById('selectedItemName');
+            if (!display) return;
+            if (selectedItem) {
+                display.className = 'value';
+                display.textContent = `${selectedItem.emoji || '☕'} ${selectedItem.name} (₱${selectedItem.price})`;
+            } else {
+                display.className = 'value empty';
+                display.textContent = 'None selected';
+            }
+        }
+
+        function addProduct() {
+            const nameInput = document.getElementById('newProdName');
+            const priceInput = document.getElementById('newProdPrice');
+            const iconSelect = document.getElementById('newProdIcon');
+            
+            const name = nameInput.value.trim();
+            const price = parseFloat(priceInput.value);
+            const emoji = iconSelect.value;
+
+            if (!name) {
+                alert('❌ Please enter a product name.');
+                nameInput.focus();
+                return;
+            }
+            
+            if (isNaN(price) || price <= 0) {
+                alert('❌ Please enter a valid price (positive number).');
+                priceInput.focus();
+                return;
+            }
+
+            if (menu.some(item => item.name.toLowerCase() === name.toLowerCase())) {
+                alert(`❌ "${name}" already exists in the menu!`);
+                nameInput.focus();
+                return;
+            }
+
+            const newItem = { 
+                id: Date.now(), 
+                name: name, 
+                price: price, 
+                isTop: false, 
+                emoji: emoji 
+            };
+            
+            menu.push(newItem);
+
+            nameInput.value = '';
+            priceInput.value = '';
+            iconSelect.value = '☕';
+            
+            const successMsg = document.getElementById('addSuccessMsg');
+            if (successMsg) {
+                successMsg.textContent = `✅ "${name}" added to menu! (₱${price})`;
+                successMsg.classList.add('show');
+                setTimeout(() => successMsg.classList.remove('show'), 3000);
+            }
+
+            saveMenu();
+            selectItem(newItem.id);
+        }
+
+        function deleteItem(index) {
+            if (confirm(`Delete "${menu[index].name}" from the menu?`)) {
+                const itemId = menu[index].id;
+                if (selectedItem && selectedItem.id === itemId) {
+                    selectedItem = null;
+                }
+                menu.splice(index, 1);
+                saveMenu();
+            }
+        }
+
+        function setTheme(themeName, el) {
+            document.body.className = themeName;
+            document.querySelectorAll('.theme-dot').forEach(dot => dot.classList.remove('active'));
+            if(el) el.classList.add('active');
+            localStorage.setItem('espresso_pos_theme', themeName);
+        }
+
+        function addToCart() {
+            if (!selectedItem) {
+                alert('⚠️ Please select an item first!');
+                return;
+            }
+            const qtyInput = document.getElementById('qtyInput');
+            const qty = parseInt(qtyInput.value) || 1;
+            if (qty <= 0) {
+                alert('⚠️ Quantity must be at least 1.');
+                qtyInput.focus();
+                return;
+            }
+
+            const existing = cart.find(item => item.id === selectedItem.id);
+            if (existing) {
+                existing.qty += qty;
+            } else {
+                cart.push({ ...selectedItem, qty });
+            }
+
+            renderCart();
+            updateTotals();
+            qtyInput.value = '1';
+        }
+
+        function removeFromCart(index) {
+            cart.splice(index, 1);
+            renderCart();
+            updateTotals();
+        }
+
+        function clearCart() {
+            if (cart.length === 0) return;
+            if (confirm('Clear all items from current order?')) {
+                cart = [];
+                renderCart();
+                updateTotals();
+                document.getElementById('orderRemarks').value = '';
+                updateCharCount();
+            }
+        }
+
+        function renderCart() {
+            const container = document.getElementById('cartItems');
+            if (!container) return;
+            if (cart.length === 0) {
+                container.innerHTML = '<div class="cart-empty">No items added yet</div>';
+                return;
+            }
+            container.innerHTML = cart.map((item, index) => `
+                <div class="cart-item">
+                    <span>${item.emoji || '☕'} ${item.name} × ${item.qty}</span>
+                    <span>
+                        ₱${(item.price * item.qty).toFixed(2)}
+                        <button class="remove-btn" onclick="removeFromCart(${index})">✕</button>
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        function updateTotals() {
+            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            const itemCount = cart.reduce((sum, item) => sum + item.qty, 0);
+            document.getElementById('subtotalLabel').textContent = subtotal.toFixed(2);
+            document.getElementById('itemCountLabel').textContent = itemCount;
+            document.getElementById('totalAmountLabel').textContent = subtotal.toFixed(2);
+            calculateChange();
+        }
+
+        function calculateChange() {
+            const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            if (document.getElementById('paymentMode').value === 'Cash') {
+                const tendered = parseFloat(document.getElementById('tenderedInput').value) || 0;
+                const change = Math.max(0, tendered - total);
+                document.getElementById('changeLabel').textContent = change.toFixed(2);
+            } else {
+                document.getElementById('changeLabel').textContent = '0.00';
+            }
+        }
+
+        function toggleCashFields() {
+            const mode = document.getElementById('paymentMode').value;
+            document.getElementById('cashGroup').style.display = mode === 'Cash' ? 'block' : 'none';
+            document.getElementById('changeRow').style.display = mode === 'Cash' ? 'flex' : 'none';
+            calculateChange();
+        }
+
+        function updateCharCount() {
+            const textarea = document.getElementById('orderRemarks');
+            const count = textarea.value.length;
+            const charCount = document.getElementById('charCount');
+            charCount.textContent = `${count} / 50`;
+            charCount.className = 'char-count';
+            if (count > 40) charCount.classList.add('limit');
+            if (count >= 50) charCount.classList.add('over');
+        }
+
+        function recordTransaction() {
+            if (cart.length === 0) {
+                alert('⚠️ Please add at least one item to the order!');
+                return;
+            }
+
+            const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            const mode = document.getElementById('paymentMode').value;
+            const tendered = parseFloat(document.getElementById('tenderedInput').value) || 0;
+            const remarks = document.getElementById('orderRemarks').value.trim();
+
+            if (mode === 'Cash' && tendered < total) {
+                alert('⚠️ Cash tendered is less than the total amount!');
+                document.getElementById('tenderedInput').focus();
+                return;
+            }
+
+            const now = new Date();
+            const itemSummary = cart.map(item => `${item.name} x ${item.qty}`).join(', ');
+
+            transactions.unshift({
+                id: transactions.length + 1,
+                time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                date: now.toLocaleDateString(),
+                items: itemSummary,
+                total: total,
+                mode: mode,
+                remarks: remarks || '',
+                cart: cart.map(item => ({ ...item }))
+            });
+
+            localStorage.setItem('espresso_pos_txns', JSON.stringify(transactions));
+
+            cart = [];
+            renderCart();
+            document.getElementById('tenderedInput').value = '';
+            document.getElementById('qtyInput').value = '1';
+            document.getElementById('orderRemarks').value = '';
+            updateCharCount();
+            updateTotals();
+            renderDashboard();
+            calculateChange();
+
+            alert(`✅ Transaction complete!\nTotal: ₱${total.toFixed(2)}\nPayment: ${mode}`);
+        }
+
+        function renderDashboard() {
+            const tbody = document.getElementById('txnTableBody');
+            if (!tbody) return;
+            
+            if (!transactions.length) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="txn-empty">No transactions recorded yet.</td>
+                    </tr>
+                `;
+                document.getElementById('statSales').innerText = '₱0.00';
+                document.getElementById('statTxnCount').innerText = '0';
+                document.getElementById('statCash').innerText = '₱0.00';
+                document.getElementById('statOnline').innerText = '₱0.00';
+                return;
+            }
+
+            let totalSales = 0, cashSales = 0, onlineSales = 0;
+            
+            tbody.innerHTML = transactions.map((t, index) => {
+                totalSales += t.total;
+                if (t.mode === 'Cash') cashSales += t.total; 
+                else onlineSales += t.total;
+                
+                const modeClass = t.mode === 'Cash' ? 'cash' : 'online';
+                const hasRemark = t.remarks && t.remarks.trim() !== '';
+                const rowNum = transactions.length - index;
+                
+                return `
+                    <tr>
+                        <td style="font-weight:bold;color:var(--text-muted);">${rowNum}</td>
+                        <td>${t.date || ''}</td>
+                        <td style="white-space:nowrap; font-weight:500;">${t.time}</td>
+                        <td class="txn-items">${t.items}</td>
+                        <td class="txn-total">₱${t.total.toFixed(2)}</td>
+                        <td><span class="txn-mode-badge ${modeClass}">${t.mode}</span></td>
+                        <td style="font-size:0.8rem;color:var(--text-muted);">${hasRemark ? t.remarks : '—'}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            document.getElementById('statSales').innerText = '₱' + totalSales.toFixed(2);
+            document.getElementById('statTxnCount').innerText = transactions.length;
+            document.getElementById('statCash').innerText = '₱' + cashSales.toFixed(2);
+            document.getElementById('statOnline').innerText = '₱' + onlineSales.toFixed(2);
+        }
+
+        // ============================================================
+        // CLEAN EXPORT - NO SPECIAL CHARACTERS
+        // ============================================================
+        function cleanForExport(text) {
+            if (!text) return '';
+            // Remove ALL special characters, emojis, keep only basic ASCII
+            return String(text)
+                .replace(/[^\x00-\x7F]/g, '')  // Remove all non-ASCII characters
+                .replace(/[^a-zA-Z0-9\s,.\-]/g, ' ')  // Keep only letters, numbers, spaces, comma, dot, dash
+                .replace(/\s+/g, ' ')          // Normalize spaces
+                .trim();
+        }
+
+        function escapeCSV(value) {
+            if (value == null) return '';
+            const str = String(value);
+            if (str.includes(',') || str.includes('\n') || str.includes('"')) {
+                return '"' + str.replace(/"/g, '""') + '"';
+            }
+            return str;
+        }
+
+        function exportExcel() {
+            if (!transactions.length) {
+                alert('No transactions to export!');
+                return;
+            }
+
+            // Build clean CSV with UTF-8 BOM for Excel compatibility
+            let csv = '\uFEFF'; // UTF-8 BOM for Excel
+            csv += 'Transaction Report - Espresso Code POS\n';
+            csv += 'Generated: ' + new Date().toLocaleString() + '\n\n';
+            
+            // Header
+            csv += '#,Date,Time,Items,Total (₱),Payment Mode,Remarks\n';
+            
+            // Data rows - completely clean
+            transactions.forEach((t, index) => {
+                const rowNum = transactions.length - index;
+                const date = cleanForExport(t.date || '');
+                const time = cleanForExport(t.time || '');
+                // Clean items - replace "×" with "x" and remove any special chars
+                const items = cleanForExport(t.items || '').replace(/×/g, 'x');
+                const total = t.total.toFixed(2);
+                const mode = cleanForExport(t.mode || '');
+                const remarks = cleanForExport(t.remarks || '');
+                
+                const row = [
+                    rowNum,
+                    date,
+                    time,
+                    items,
+                    total,
+                    mode,
+                    remarks
+                ].map(escapeCSV).join(',');
+                
+                csv += row + '\n';
+            });
+
+            // Summary
+            const totalSales = transactions.reduce((sum, t) => sum + t.total, 0);
+            const cashSales = transactions.filter(t => t.mode === 'Cash').reduce((sum, t) => sum + t.total, 0);
+            const onlineSales = transactions.filter(t => t.mode === 'Online').reduce((sum, t) => sum + t.total, 0);
+            
+            csv += '\n\nSUMMARY\n';
+            csv += `Total Transactions,${transactions.length}\n`;
+            csv += `Total Sales,${totalSales.toFixed(2)}\n`;
+            csv += `Cash Sales,${cashSales.toFixed(2)}\n`;
+            csv += `Online Sales,${onlineSales.toFixed(2)}\n`;
+
+            // Download
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `Espresso_POS_Report_${new Date().toISOString().slice(0,10)}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+        }
+
+        function clearData() {
+            if (confirm('⚠️ Are you sure you want to reset all daily transactions?')) {
+                transactions = [];
+                localStorage.removeItem('espresso_pos_txns');
+                renderDashboard();
+            }
+        }
+
+        // Initialize
+        renderMenuUI();
+        renderDashboard();
+        toggleCashFields();
+        updateTotals();
+        updateCharCount();
+        
+        document.getElementById('newProdName').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('newProdPrice').focus();
+            }
+        });
+        document.getElementById('newProdPrice').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addProduct();
+            }
+        });
+
+        const savedTheme = localStorage.getItem('espresso_pos_theme');
+        if (savedTheme) {
+            document.body.className = savedTheme;
+            document.querySelectorAll('.theme-dot').forEach(dot => {
+                dot.classList.remove('active');
+                if (dot.classList.contains(savedTheme.replace('theme-', 'dot-'))) {
+                    dot.classList.add('active');
+                }
+            });
+        }
+    </script>
+</body>
+</html>
